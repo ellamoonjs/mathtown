@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정수와 유리수 계산 게임</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
     <style>
         body {
             display: flex;
@@ -48,17 +52,19 @@
         }
         .problem {
             position: absolute;
-            font-size: 22px;
-            font-weight: bold;
+            font-size: 24px; 
             background: white;
             border: 2px solid #0984e3;
-            padding: 10px 15px;
+            padding: 8px 15px;
             border-radius: 8px;
             color: #2d3436;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             white-space: nowrap;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        /* 오답일 때 화면이 흔들리는 효과 (옵션) */
+        
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px); }
@@ -71,19 +77,20 @@
         }
         
         #input-display {
-            height: 60px;
+            height: 80px; 
             display: flex;
+            justify-content: center;
             align-items: center;
             padding: 0 20px;
             background: #f1f2f6;
-            font-size: 28px;
-            font-weight: bold;
-            color: #2d3436;
+            font-size: 32px;
+            color: #0984e3; 
             border-top: 2px solid #dfe6e9;
             z-index: 2;
             transition: background-color 0.2s;
+            overflow-x: auto;
         }
-        .placeholder { color: #b2bec3; font-size: 20px; font-weight: normal; }
+        .placeholder { color: #b2bec3; font-size: 20px; font-weight: normal; font-family: 'Malgun Gothic', sans-serif; }
         
         #keypad {
             display: grid;
@@ -128,7 +135,36 @@
         #start-screen h1 { margin-bottom: 10px; color: #2d3436; font-size: 32px; }
         #start-screen p { color: #636e72; margin-bottom: 30px; text-align: center; line-height: 1.6; padding: 0 20px; }
         #game-over h1 { font-size: 45px; margin-bottom: 10px; color: #ff7675; }
-        #game-over h2 { font-size: 30px; margin-bottom: 30px; }
+        #game-over h2 { font-size: 30px; margin-bottom: 20px; color: #74b9ff; }
+        
+        /* 기록장 UI 스타일 */
+        .stats-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .stats-box p {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            color: #f1f2f6;
+        }
+        .stats-box hr {
+            border: none;
+            border-top: 1px dashed rgba(255,255,255,0.3);
+            margin: 10px 0;
+        }
+        #history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: #ffeaa7;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
         button.start-btn {
             padding: 15px 40px; font-size: 24px; font-weight: bold; background: #00b894;
             color: white; border: none; border-radius: 8px; cursor: pointer;
@@ -142,7 +178,7 @@
 <div id="game-container">
     <div id="start-screen">
         <h1>정수와 유리수 계산</h1>
-        <p>내려오는 수식의 정답을 키패드로 입력하세요.<br>분수는 <strong>1/2</strong>, <strong>-3/4</strong> 형태로 입력합니다.<br>PC의 키보드로도 입력 가능합니다!</p>
+        <p>내려오는 수식의 정답을 키패드로 입력하세요.<br>분수는 <strong>1/2</strong> 버튼 순서로 누르면<br>자동으로 위아래 수식으로 변환됩니다!</p>
         <button class="start-btn" onclick="startGame()">게임 시작</button>
     </div>
 
@@ -165,7 +201,7 @@
         <button onclick="typeKey('4')">4</button>
         <button onclick="typeKey('5')">5</button>
         <button onclick="typeKey('6')">6</button>
-        <button class="btn-action" onclick="typeKey('/')">/</button>
+        <button class="btn-action" onclick="typeKey('/')">분수(/)</button>
         
         <button onclick="typeKey('7')">7</button>
         <button onclick="typeKey('8')">8</button>
@@ -179,6 +215,15 @@
     <div id="game-over">
         <h1>게임 종료!</h1>
         <h2>최종 점수: <span id="final-score">0</span> 점</h2>
+        
+        <div class="stats-box">
+            <p>총 도전 횟수: <strong id="total-attempts" style="color:#00b894;">0</strong>회</p>
+            <hr>
+            <p style="font-size: 16px; color:#b2bec3;">[ 최근 5번의 기록 ]</p>
+            <ul id="history-list">
+                </ul>
+        </div>
+
         <button class="start-btn" onclick="startGame()">다시 시작</button>
     </div>
 </div>
@@ -193,6 +238,7 @@
     let spawnTimer;
     let lastTime;
     let currentInput = "";
+    let problems = [];
 
     const playArea = document.getElementById('play-area');
     const inputDisplay = document.getElementById('input-display');
@@ -203,129 +249,98 @@
     const finalScoreDisplay = document.getElementById('final-score');
     const startScreen = document.getElementById('start-screen');
 
-    // 키패드 입력 처리
-    function typeKey(key) {
-        currentInput += key;
-        updateDisplay();
-    }
-
-    function deleteKey() {
-        currentInput = currentInput.slice(0, -1);
-        updateDisplay();
+    function formatInputToLatex(str) {
+        if (!str.includes('/')) return str; 
+        let parts = str.split('/');
+        let numStr = parts[0];
+        let denStr = parts.length > 1 ? parts[1] : '';
+        let sign = '';
+        if (numStr.startsWith('-')) { sign = '-'; numStr = numStr.substring(1); }
+        let latexNum = numStr === '' ? '\\phantom{0}' : numStr;
+        let latexDen = denStr === '' ? '\\phantom{0}' : denStr;
+        return `${sign}\\frac{${latexNum}}{${latexDen}}`;
     }
 
     function updateDisplay() {
         if (currentInput === "") {
             inputDisplay.innerHTML = '<span class="placeholder">정답 입력...</span>';
         } else {
-            inputDisplay.innerText = currentInput;
+            let latex = "\\displaystyle " + formatInputToLatex(currentInput);
+            katex.render(latex, inputDisplay, { throwOnError: false });
         }
     }
 
-    // PC 키보드 지원
+    function typeKey(key) { currentInput += key; updateDisplay(); }
+    function deleteKey() { currentInput = currentInput.slice(0, -1); updateDisplay(); }
+
     document.addEventListener('keydown', function(e) {
         if (startScreen.style.display !== 'none' || gameOverScreen.style.display === 'flex') return;
-        
-        if (e.key >= '0' && e.key <= '9' || e.key === '-' || e.key === '/') {
-            typeKey(e.key);
-        } else if (e.key === 'Backspace') {
-            deleteKey();
-        } else if (e.key === 'Enter') {
-            submitAnswer();
-        }
+        if (e.key >= '0' && e.key <= '9' || e.key === '-' || e.key === '/') typeKey(e.key);
+        else if (e.key === 'Backspace') deleteKey();
+        else if (e.key === 'Enter') submitAnswer();
     });
 
-    function getRandInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+    function getRandInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
     function formatTerm(num, den = 1, isFirst = false) {
         if (den < 0) { num = -num; den = -den; }
         if (den === 1) {
-            if (num < 0 && !isFirst) return `(${num})`;
+            if (num < 0 && !isFirst) return `\\left(${num}\\right)`;
             return `${num}`;
         }
-        let str = `${num}/${den}`;
-        if (num < 0 && !isFirst) return `(${str})`;
-        return str;
+        let sign = num < 0 ? '-' : '';
+        let absNum = Math.abs(num);
+        let frac = `${sign}\\frac{${absNum}}{${den}}`;
+        if (num < 0 && !isFirst) return `\\left(${frac}\\right)`;
+        return frac;
     }
 
     function createProblemData() {
-        let text = "";
-        let val = 0;
-        let scoreReward = 0;
-
+        let text = ""; let val = 0; let scoreReward = 0;
         if (level === 1) { 
-            let a = getRandInt(-9, 9);
-            let b = getRandInt(-9, 9);
+            let a = getRandInt(-9, 9); let b = getRandInt(-9, 9);
             let op = getRandInt(0, 1) ? '+' : '-';
             text = `${formatTerm(a, 1, true)} ${op} ${formatTerm(b, 1)}`;
-            val = op === '+' ? a + b : a - b;
-            scoreReward = 10;
+            val = op === '+' ? a + b : a - b; scoreReward = 10;
         } else if (level === 2) { 
-            let d = getRandInt(2, 7);
-            let a = getRandInt(-9, 9);
-            let b = getRandInt(-9, 9);
+            let d = getRandInt(2, 7); let a = getRandInt(-9, 9); let b = getRandInt(-9, 9);
             let op = getRandInt(0, 1) ? '+' : '-';
             text = `${formatTerm(a, d, true)} ${op} ${formatTerm(b, d)}`;
-            val = op === '+' ? (a + b)/d : (a - b)/d;
-            scoreReward = 30;
+            val = op === '+' ? (a + b)/d : (a - b)/d; scoreReward = 30;
         } else if (level === 3) { 
-            let a = getRandInt(-9, 9);
-            let b = getRandInt(-9, 9);
-            let c = getRandInt(-9, 9);
-            let op1 = getRandInt(0, 1) ? '+' : '-';
-            let op2 = getRandInt(0, 1) ? '+' : '-';
+            let a = getRandInt(-9, 9); let b = getRandInt(-9, 9); let c = getRandInt(-9, 9);
+            let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
             text = `${formatTerm(a, 1, true)} ${op1} ${formatTerm(b, 1)} ${op2} ${formatTerm(c, 1)}`;
-            let temp = op1 === '+' ? a + b : a - b;
-            val = op2 === '+' ? temp + c : temp - c;
-            scoreReward = 50;
+            let temp = op1 === '+' ? a + b : a - b; val = op2 === '+' ? temp + c : temp - c; scoreReward = 50;
         } else if (level === 4) { 
-            let d = getRandInt(2, 7);
-            let a = getRandInt(-9, 9);
-            let b = getRandInt(-9, 9);
-            let c = getRandInt(-9, 9);
-            let op1 = getRandInt(0, 1) ? '+' : '-';
-            let op2 = getRandInt(0, 1) ? '+' : '-';
+            let d = getRandInt(2, 7); let a = getRandInt(-9, 9); let b = getRandInt(-9, 9); let c = getRandInt(-9, 9);
+            let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
             text = `${formatTerm(a, d, true)} ${op1} ${formatTerm(b, d)} ${op2} ${formatTerm(c, d)}`;
-            let temp = op1 === '+' ? a + b : a - b;
-            val = op2 === '+' ? (temp + c)/d : (temp - c)/d;
-            scoreReward = 70;
+            let temp = op1 === '+' ? a + b : a - b; val = op2 === '+' ? (temp + c)/d : (temp - c)/d; scoreReward = 70;
         } else { 
-            let d1 = getRandInt(2, 5);
-            let d2 = getRandInt(2, 5);
-            let d3 = getRandInt(2, 5);
-            let a = getRandInt(-5, 5);
-            let b = getRandInt(-5, 5);
-            let c = getRandInt(-5, 5);
-            let op1 = getRandInt(0, 1) ? '+' : '-';
-            let op2 = getRandInt(0, 1) ? '+' : '-';
+            let d1 = getRandInt(2, 5); let d2 = getRandInt(2, 5); let d3 = getRandInt(2, 5);
+            let a = getRandInt(-5, 5); let b = getRandInt(-5, 5); let c = getRandInt(-5, 5);
+            let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
             text = `${formatTerm(a, d1, true)} ${op1} ${formatTerm(b, d2)} ${op2} ${formatTerm(c, d3)}`;
             let v1 = a/d1, v2 = b/d2, v3 = c/d3;
-            let temp = op1 === '+' ? v1 + v2 : v1 - v2;
-            val = op2 === '+' ? temp + v3 : temp - v3;
-            scoreReward = 100;
+            let temp = op1 === '+' ? v1 + v2 : v1 - v2; val = op2 === '+' ? temp + v3 : temp - v3; scoreReward = 100;
         }
         return { text, val, scoreReward };
     }
 
-    let problems = [];
-
     function spawnProblem() {
         if (lives <= 0) return;
-
         let data = createProblemData();
         let el = document.createElement('div');
         el.className = 'problem';
-        el.innerText = data.text;
         playArea.appendChild(el);
+        katex.render("\\displaystyle " + data.text, el, { throwOnError: false });
 
         let maxLeft = playArea.clientWidth - el.offsetWidth - 20;
         let leftPos = Math.max(10, getRandInt(10, maxLeft));
         el.style.left = leftPos + 'px';
-        el.style.top = '-50px';
-
-        problems.push({ el: el, val: data.val, scoreReward: data.scoreReward, y: -50 });
+        el.style.top = '-80px'; 
+        problems.push({ el: el, val: data.val, scoreReward: data.scoreReward, y: -80 });
     }
 
     function parseAnswer(str) {
@@ -333,72 +348,44 @@
         if (str.includes('/')) {
             let parts = str.split('/');
             if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] !== "" && parts[1] !== "") {
-                let num = parseFloat(parts[0]);
-                let den = parseFloat(parts[1]);
-                if (den === 0) return null;
-                return num / den;
+                let num = parseFloat(parts[0]); let den = parseFloat(parts[1]);
+                if (den === 0) return null; return num / den;
             }
         } else {
-            if (!isNaN(str) && str !== '-' && str !== '') {
-                return parseFloat(str);
-            }
+            if (!isNaN(str) && str !== '-' && str !== '') return parseFloat(str);
         }
         return null;
     }
 
     function update() {
         if (lives <= 0) return;
-
-        let now = Date.now();
-        let dt = now - lastTime;
-        let moveSpeed = speed * (dt / 16.66); 
-        lastTime = now;
-
+        let now = Date.now(); let dt = now - lastTime; let moveSpeed = speed * (dt / 16.66); lastTime = now;
         for (let i = problems.length - 1; i >= 0; i--) {
-            let p = problems[i];
-            p.y += moveSpeed;
-            p.el.style.top = p.y + 'px';
-
-            // 문제가 바닥에 닿았을 때 오답 처리 (하트 감소)
-            if (p.y > playArea.clientHeight - 40) {
-                p.el.remove();
-                problems.splice(i, 1);
-                loseLife();
-                consecutiveCorrect = 0; 
+            let p = problems[i]; p.y += moveSpeed; p.el.style.top = p.y + 'px';
+            if (p.y > playArea.clientHeight - 60) {
+                p.el.remove(); problems.splice(i, 1); loseLife(); consecutiveCorrect = 0; 
             }
         }
         animId = requestAnimationFrame(update);
     }
 
     function loseLife() {
-        lives--;
-        updateUI();
-        
-        // 오답 시 입력창이 붉어지며 흔들리는 시각적 효과 추가
+        lives--; updateUI();
         inputDisplay.classList.add('shake-screen');
         setTimeout(() => inputDisplay.classList.remove('shake-screen'), 300);
-
         if (lives <= 0) endGame();
     }
 
     function updateUI() {
-        let h = "";
-        for (let i = 0; i < 5; i++) {
-            h += (i < lives) ? "❤️" : "🤍"; // 줄어든 하트는 하얀색 하트로 변경
-        }
-        heartsDisplay.innerText = h;
-        scoreDisplay.innerText = `${score} 점`;
-        levelDisplay.innerText = `Lv.${level}`;
+        let h = ""; for (let i = 0; i < 5; i++) h += (i < lives) ? "❤️" : "🤍";
+        heartsDisplay.innerText = h; scoreDisplay.innerText = `${score} 점`; levelDisplay.innerText = `Lv.${level}`;
     }
 
     function levelUpCheck() {
         consecutiveCorrect++;
         if (consecutiveCorrect >= 5) {
             consecutiveCorrect = 0;
-            if (level < 5) {
-                level++;
-                speed += 0.1;
-            }
+            if (level < 5) { level++; speed += 0.1; }
         }
         updateUI();
     }
@@ -406,65 +393,66 @@
     function submitAnswer() {
         let userVal = parseAnswer(currentInput);
         if (userVal !== null) {
-            let matchedIdx = -1;
-            let maxY = -Infinity;
-
-            // 정답 검사
+            let matchedIdx = -1; let maxY = -Infinity;
             for (let i = 0; i < problems.length; i++) {
                 if (Math.abs(problems[i].val - userVal) < 0.0001) {
-                    if (problems[i].y > maxY) {
-                        maxY = problems[i].y;
-                        matchedIdx = i;
-                    }
+                    if (problems[i].y > maxY) { maxY = problems[i].y; matchedIdx = i; }
                 }
             }
-
             if (matchedIdx !== -1) {
-                // 정답을 맞췄을 때
-                let p = problems[matchedIdx];
-                score += p.scoreReward;
-                p.el.remove();
-                problems.splice(matchedIdx, 1);
-                levelUpCheck();
+                let p = problems[matchedIdx]; score += p.scoreReward;
+                p.el.remove(); problems.splice(matchedIdx, 1); levelUpCheck();
             } else {
-                // ⭐️ 정답을 틀렸을 때 (추가된 부분)
-                loseLife(); 
-                consecutiveCorrect = 0; // 연속 정답 초기화
+                loseLife(); consecutiveCorrect = 0; 
             }
         }
-        currentInput = "";
-        updateDisplay();
+        currentInput = ""; updateDisplay();
     }
 
     function startGame() {
-        startScreen.style.display = 'none';
-        gameOverScreen.style.display = 'none';
-        
-        problems.forEach(p => p.el.remove());
-        problems = [];
-        
-        score = 0;
-        lives = 5;
-        level = 1;
-        consecutiveCorrect = 0;
-        speed = 0.4;
-        currentInput = "";
-        
-        updateUI();
-        updateDisplay();
-
+        startScreen.style.display = 'none'; gameOverScreen.style.display = 'none';
+        problems.forEach(p => p.el.remove()); problems = [];
+        score = 0; lives = 5; level = 1; consecutiveCorrect = 0; speed = 0.4; currentInput = "";
+        updateUI(); updateDisplay();
         if (spawnTimer) clearInterval(spawnTimer);
         spawnTimer = setInterval(spawnProblem, 4000);
-
-        lastTime = Date.now();
-        cancelAnimationFrame(animId);
-        update();
+        lastTime = Date.now(); cancelAnimationFrame(animId); update();
     }
 
     function endGame() {
         clearInterval(spawnTimer);
         cancelAnimationFrame(animId);
         finalScoreDisplay.innerText = score;
+
+        // ⭐️ 브라우저 로컬 스토리지에 기록 저장 및 불러오기
+        let totalAttempts = parseInt(localStorage.getItem('mathGameAttempts') || '0');
+        let history = JSON.parse(localStorage.getItem('mathGameHistory') || '[]');
+
+        // 이번 판 기록 추가
+        totalAttempts++;
+        history.push(score);
+
+        // 업데이트 된 정보 다시 저장
+        localStorage.setItem('mathGameAttempts', totalAttempts);
+        localStorage.setItem('mathGameHistory', JSON.stringify(history));
+
+        // 화면에 정보 띄우기
+        document.getElementById('total-attempts').innerText = totalAttempts;
+        let historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+        
+        // 최신 5개 기록만 잘라내기
+        let recentHistory = history.slice(-5);
+        
+        // 최신 기록이 위로 오도록 뒤집어서 화면에 출력
+        recentHistory.reverse().forEach((s, index) => {
+            let li = document.createElement('li');
+            // 몇 회차인지 계산 (총 도전 횟수에서 역산)
+            let attemptNum = totalAttempts - index;
+            li.innerText = `${attemptNum}회차: ${s} 점`;
+            historyList.appendChild(li);
+        });
+
         gameOverScreen.style.display = 'flex';
     }
 </script>

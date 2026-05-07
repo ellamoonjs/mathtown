@@ -134,21 +134,21 @@
         #game-over { background: rgba(45, 52, 54, 0.95); color: white; display: none; }
         #start-screen h1 { margin-bottom: 10px; color: #2d3436; font-size: 32px; }
         #start-screen p { color: #636e72; margin-bottom: 30px; text-align: center; line-height: 1.6; padding: 0 20px; }
-        #game-over h1 { font-size: 45px; margin-bottom: 10px; color: #ff7675; }
-        #game-over h2 { font-size: 30px; margin-bottom: 20px; color: #74b9ff; }
+        #game-over h1 { font-size: 45px; margin-bottom: 5px; color: #ff7675; }
+        #game-over h2 { font-size: 30px; margin-bottom: 15px; color: #ffffff; }
         
-        /* 기록장 UI 스타일 */
         .stats-box {
             background: rgba(255, 255, 255, 0.1);
-            padding: 20px 30px;
+            padding: 15px 25px;
             border-radius: 12px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.2);
+            width: 80%;
         }
         .stats-box p {
-            margin: 0 0 10px 0;
-            font-size: 20px;
+            margin: 5px 0;
+            font-size: 18px;
             color: #f1f2f6;
         }
         .stats-box hr {
@@ -159,10 +159,10 @@
         #history-list {
             list-style: none;
             padding: 0;
-            margin: 0;
+            margin: 5px 0 0 0;
             color: #ffeaa7;
-            font-size: 18px;
-            line-height: 1.5;
+            font-size: 16px;
+            line-height: 1.4;
         }
 
         button.start-btn {
@@ -214,14 +214,14 @@
 
     <div id="game-over">
         <h1>게임 종료!</h1>
-        <h2>최종 점수: <span id="final-score">0</span> 점</h2>
+        <h2 id="current-score-text">최종 점수: 0 점</h2>
         
         <div class="stats-box">
-            <p>총 도전 횟수: <strong id="total-attempts" style="color:#00b894;">0</strong>회</p>
+            <p>🏆 최고 기록: <strong id="best-score" style="color:#fab1a0;">0</strong> 점</p>
+            <p>🔄 총 도전 횟수: <strong id="total-attempts" style="color:#55efc4;">0</strong> 회</p>
             <hr>
-            <p style="font-size: 16px; color:#b2bec3;">[ 최근 5번의 기록 ]</p>
-            <ul id="history-list">
-                </ul>
+            <p style="font-size: 14px; color:#b2bec3;">[ 최근 5회 기록 ]</p>
+            <ul id="history-list"></ul>
         </div>
 
         <button class="start-btn" onclick="startGame()">다시 시작</button>
@@ -246,7 +246,6 @@
     const scoreDisplay = document.getElementById('score');
     const levelDisplay = document.getElementById('level-display');
     const gameOverScreen = document.getElementById('game-over');
-    const finalScoreDisplay = document.getElementById('final-score');
     const startScreen = document.getElementById('start-screen');
 
     function formatInputToLatex(str) {
@@ -310,152 +309,4 @@
         } else if (level === 3) { 
             let a = getRandInt(-9, 9); let b = getRandInt(-9, 9); let c = getRandInt(-9, 9);
             let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
-            text = `${formatTerm(a, 1, true)} ${op1} ${formatTerm(b, 1)} ${op2} ${formatTerm(c, 1)}`;
-            let temp = op1 === '+' ? a + b : a - b; val = op2 === '+' ? temp + c : temp - c; scoreReward = 50;
-        } else if (level === 4) { 
-            let d = getRandInt(2, 7); let a = getRandInt(-9, 9); let b = getRandInt(-9, 9); let c = getRandInt(-9, 9);
-            let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
-            text = `${formatTerm(a, d, true)} ${op1} ${formatTerm(b, d)} ${op2} ${formatTerm(c, d)}`;
-            let temp = op1 === '+' ? a + b : a - b; val = op2 === '+' ? (temp + c)/d : (temp - c)/d; scoreReward = 70;
-        } else { 
-            let d1 = getRandInt(2, 5); let d2 = getRandInt(2, 5); let d3 = getRandInt(2, 5);
-            let a = getRandInt(-5, 5); let b = getRandInt(-5, 5); let c = getRandInt(-5, 5);
-            let op1 = getRandInt(0, 1) ? '+' : '-'; let op2 = getRandInt(0, 1) ? '+' : '-';
-            text = `${formatTerm(a, d1, true)} ${op1} ${formatTerm(b, d2)} ${op2} ${formatTerm(c, d3)}`;
-            let v1 = a/d1, v2 = b/d2, v3 = c/d3;
-            let temp = op1 === '+' ? v1 + v2 : v1 - v2; val = op2 === '+' ? temp + v3 : temp - v3; scoreReward = 100;
-        }
-        return { text, val, scoreReward };
-    }
-
-    function spawnProblem() {
-        if (lives <= 0) return;
-        let data = createProblemData();
-        let el = document.createElement('div');
-        el.className = 'problem';
-        playArea.appendChild(el);
-        katex.render("\\displaystyle " + data.text, el, { throwOnError: false });
-
-        let maxLeft = playArea.clientWidth - el.offsetWidth - 20;
-        let leftPos = Math.max(10, getRandInt(10, maxLeft));
-        el.style.left = leftPos + 'px';
-        el.style.top = '-80px'; 
-        problems.push({ el: el, val: data.val, scoreReward: data.scoreReward, y: -80 });
-    }
-
-    function parseAnswer(str) {
-        if (!str) return null;
-        if (str.includes('/')) {
-            let parts = str.split('/');
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] !== "" && parts[1] !== "") {
-                let num = parseFloat(parts[0]); let den = parseFloat(parts[1]);
-                if (den === 0) return null; return num / den;
-            }
-        } else {
-            if (!isNaN(str) && str !== '-' && str !== '') return parseFloat(str);
-        }
-        return null;
-    }
-
-    function update() {
-        if (lives <= 0) return;
-        let now = Date.now(); let dt = now - lastTime; let moveSpeed = speed * (dt / 16.66); lastTime = now;
-        for (let i = problems.length - 1; i >= 0; i--) {
-            let p = problems[i]; p.y += moveSpeed; p.el.style.top = p.y + 'px';
-            if (p.y > playArea.clientHeight - 60) {
-                p.el.remove(); problems.splice(i, 1); loseLife(); consecutiveCorrect = 0; 
-            }
-        }
-        animId = requestAnimationFrame(update);
-    }
-
-    function loseLife() {
-        lives--; updateUI();
-        inputDisplay.classList.add('shake-screen');
-        setTimeout(() => inputDisplay.classList.remove('shake-screen'), 300);
-        if (lives <= 0) endGame();
-    }
-
-    function updateUI() {
-        let h = ""; for (let i = 0; i < 5; i++) h += (i < lives) ? "❤️" : "🤍";
-        heartsDisplay.innerText = h; scoreDisplay.innerText = `${score} 점`; levelDisplay.innerText = `Lv.${level}`;
-    }
-
-    function levelUpCheck() {
-        consecutiveCorrect++;
-        if (consecutiveCorrect >= 5) {
-            consecutiveCorrect = 0;
-            if (level < 5) { level++; speed += 0.1; }
-        }
-        updateUI();
-    }
-
-    function submitAnswer() {
-        let userVal = parseAnswer(currentInput);
-        if (userVal !== null) {
-            let matchedIdx = -1; let maxY = -Infinity;
-            for (let i = 0; i < problems.length; i++) {
-                if (Math.abs(problems[i].val - userVal) < 0.0001) {
-                    if (problems[i].y > maxY) { maxY = problems[i].y; matchedIdx = i; }
-                }
-            }
-            if (matchedIdx !== -1) {
-                let p = problems[matchedIdx]; score += p.scoreReward;
-                p.el.remove(); problems.splice(matchedIdx, 1); levelUpCheck();
-            } else {
-                loseLife(); consecutiveCorrect = 0; 
-            }
-        }
-        currentInput = ""; updateDisplay();
-    }
-
-    function startGame() {
-        startScreen.style.display = 'none'; gameOverScreen.style.display = 'none';
-        problems.forEach(p => p.el.remove()); problems = [];
-        score = 0; lives = 5; level = 1; consecutiveCorrect = 0; speed = 0.4; currentInput = "";
-        updateUI(); updateDisplay();
-        if (spawnTimer) clearInterval(spawnTimer);
-        spawnTimer = setInterval(spawnProblem, 4000);
-        lastTime = Date.now(); cancelAnimationFrame(animId); update();
-    }
-
-    function endGame() {
-        clearInterval(spawnTimer);
-        cancelAnimationFrame(animId);
-        finalScoreDisplay.innerText = score;
-
-        // ⭐️ 브라우저 로컬 스토리지에 기록 저장 및 불러오기
-        let totalAttempts = parseInt(localStorage.getItem('mathGameAttempts') || '0');
-        let history = JSON.parse(localStorage.getItem('mathGameHistory') || '[]');
-
-        // 이번 판 기록 추가
-        totalAttempts++;
-        history.push(score);
-
-        // 업데이트 된 정보 다시 저장
-        localStorage.setItem('mathGameAttempts', totalAttempts);
-        localStorage.setItem('mathGameHistory', JSON.stringify(history));
-
-        // 화면에 정보 띄우기
-        document.getElementById('total-attempts').innerText = totalAttempts;
-        let historyList = document.getElementById('history-list');
-        historyList.innerHTML = '';
-        
-        // 최신 5개 기록만 잘라내기
-        let recentHistory = history.slice(-5);
-        
-        // 최신 기록이 위로 오도록 뒤집어서 화면에 출력
-        recentHistory.reverse().forEach((s, index) => {
-            let li = document.createElement('li');
-            // 몇 회차인지 계산 (총 도전 횟수에서 역산)
-            let attemptNum = totalAttempts - index;
-            li.innerText = `${attemptNum}회차: ${s} 점`;
-            historyList.appendChild(li);
-        });
-
-        gameOverScreen.style.display = 'flex';
-    }
-</script>
-
-</body>
-</html>
+            text = `${formatTerm(a, 1, true)} ${op1} ${formatTerm(b, 1)}
